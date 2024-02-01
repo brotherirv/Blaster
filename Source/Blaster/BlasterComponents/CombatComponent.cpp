@@ -36,6 +36,17 @@ void UCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(UCombatComponent, bHoldingTheFlag);
 }
 
+void UCombatComponent::InitializeCarriedAmmo()
+{
+	CarriedAmmoMap.Emplace(EWeaponType::EWT_AssaultRifle, StartingARAmmo);
+	CarriedAmmoMap.Emplace(EWeaponType::EWT_RocketLauncher, StartingRocketAmmo);
+	CarriedAmmoMap.Emplace(EWeaponType::EWT_Pistol, StartingPistolAmmo);
+	CarriedAmmoMap.Emplace(EWeaponType::EWT_SubmachineGun, StartingSMGAmmo);
+	CarriedAmmoMap.Emplace(EWeaponType::EWT_Shotgun, StartingShotgunAmmo);
+	CarriedAmmoMap.Emplace(EWeaponType::EWT_SniperRifle, StartingShotgunAmmo);
+	CarriedAmmoMap.Emplace(EWeaponType::EWT_GrenadeLauncher, StartingGrenadeLauncherAmmo);
+}
+
 void UCombatComponent::ShotgunShellReload()
 {
 	if (Character && Character->HasAuthority())
@@ -104,27 +115,26 @@ void UCombatComponent::FireButtonPressed(bool bPressed)
 
 void UCombatComponent::Fire()
 {
+	UE_LOG(LogTemp, Warning, TEXT("Fire Function Called"));
 	if (CanFire())
 	{
-		//UE_LOG(LogTemp, Warning, TEXT("bCanFire is:%s Fire should be true"), bCanFire ? TEXT("true") : TEXT("false"));
+		UE_LOG(LogTemp, Warning, TEXT("Can Fire Called"));
 		bCanFire = false;
 		if (EquippedWeapon)
 		{
+			UE_LOG(LogTemp, Warning, TEXT("Equipped Weapon Called"));
 			CrosshairShootingFactor = .75f;
 
 			switch (EquippedWeapon->FireType)
 			{
 			case EFireType::EFT_Projectile:
 				FireProjectileWeapon();
-				UE_LOG(LogTemp, Warning, TEXT("EFT_Projectile"));
 				break;
 			case EFireType::EFT_HitScan:
-				FireHitScanWeapon();
-				UE_LOG(LogTemp, Warning, TEXT("EFT_HitScan"));
+				FireHitScanWeapon();;
 				break;
 			case EFireType::EFT_Shotgun:
 				FireShotgun();
-				UE_LOG(LogTemp, Warning, TEXT("EFT_Shotgun"));
 				break;
 			}
 			//UE_LOG(LogTemp, Warning, TEXT("bCanFire is:%s Fire should be false"), bCanFire ? TEXT("true") : TEXT("false"));
@@ -137,11 +147,12 @@ void UCombatComponent::FireProjectileWeapon()
 {
 	if (EquippedWeapon && Character)
 	{
+
 		HitTarget = EquippedWeapon->bUseScatter ? EquippedWeapon->TraceEndWithScatter(HitTarget) : HitTarget;
 		if (!Character->HasAuthority()) LocalFire(HitTarget);
 		ServerFire(HitTarget, EquippedWeapon->FireDelay);
 	}
-	UE_LOG(LogTemp, Warning, TEXT("Fire Projectile Weapon"));
+
 }
 
 void UCombatComponent::FireHitScanWeapon()
@@ -181,7 +192,6 @@ void UCombatComponent::FireTimerFinished()
 {
 	if (EquippedWeapon == nullptr) return;
 	bCanFire = true;
-	UE_LOG(LogTemp, Warning, TEXT("FireTimerFinished"));
 	if (bFireButtonPressed && EquippedWeapon->bAutomatic)
 	{
 		Fire();
@@ -870,9 +880,31 @@ void UCombatComponent::ServerSetAiming_Implementation(bool bIsAiming)
 
 bool UCombatComponent::CanFire()
 {
-	if (EquippedWeapon == nullptr) return false;
-	if (!EquippedWeapon->IsEmpty() && bCanFire && CombatState == ECombatState::ECS_Reloading && EquippedWeapon->GetWeaponType() == EWeaponType::EWT_Shotgun) return true;
-	if (bLocallyReloading) return false;
+	if (EquippedWeapon == nullptr)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Equipped Weapon is nullptr"));
+		return false;
+	}
+	if (!EquippedWeapon->IsEmpty())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("!EquippedWeapon is empty"));
+		if (!EquippedWeapon->IsEmpty() && bCanFire && CombatState == ECombatState::ECS_Reloading)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("CombatState is reloading"));
+			if (!EquippedWeapon->IsEmpty() && bCanFire && CombatState == ECombatState::ECS_Reloading && EquippedWeapon->GetWeaponType() == EWeaponType::EWT_Shotgun)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("Get weapon type, shotgun is true"));
+				return true;
+			}
+		}
+	}
+	
+		
+	if (bLocallyReloading)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("bLocallyReloading is returning true"));
+		return false;
+	}
 	return !EquippedWeapon->IsEmpty() && bCanFire && CombatState == ECombatState::ECS_Unoccupied;
 }
 
@@ -894,16 +926,7 @@ void UCombatComponent::OnRep_CarriedAmmo()
 	}
 }
 
-void UCombatComponent::InitializeCarriedAmmo()
-{
-	CarriedAmmoMap.Emplace(EWeaponType::EWT_AssaultRifle, StartingARAmmo);
-	CarriedAmmoMap.Emplace(EWeaponType::EWT_RocketLauncher, StartingRocketAmmo);
-	CarriedAmmoMap.Emplace(EWeaponType::EWT_Pistol, StartingPistolAmmo);
-	CarriedAmmoMap.Emplace(EWeaponType::EWT_SubmachineGun, StartingSMGAmmo);
-	CarriedAmmoMap.Emplace(EWeaponType::EWT_Shotgun, StartingShotgunAmmo);
-	CarriedAmmoMap.Emplace(EWeaponType::EWT_SniperRifle, StartingShotgunAmmo);
-	CarriedAmmoMap.Emplace(EWeaponType::EWT_GrenadeLauncher, StartingGrenadeLauncherAmmo);
-}
+
 
 void UCombatComponent::OnRep_HoldingTheFlag()
 {
